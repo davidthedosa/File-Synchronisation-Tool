@@ -1,15 +1,20 @@
-# Makefile for TCP client-server sync project
-
 CC = gcc
-CFLAGS = -Wall
+CFLAGS = -Wall -O2
+TARGETS = server1 client1
 
-all: server client
+all: $(TARGETS)
 
-server: tcp_server.c
-	$(CC) $(CFLAGS) tcp_server.c -o server
+server1: tcp_server.c
+	$(CC) $(CFLAGS) tcp_server.c -o server1
 
-client: tcp_client.c
-	$(CC) $(CFLAGS) tcp_client.c -o client
+client1: tcp_client.c
+	$(CC) $(CFLAGS) tcp_client.c -o client1
+
+run-server:
+	./server1
+
+run-client:
+	./client1
 
 clean:
-	rm -f server client test.txt received_file.txt
+	rm -f server1 client1 sync_log.txt

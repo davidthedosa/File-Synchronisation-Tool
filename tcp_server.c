@@ -1,28 +1,85 @@
+// tcp_server.c
+#include <time.h>
+#define LOG_FILE "sync_log.txt"
 #include <stdio.h>
 #include <stdlib.h>
-#include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <dirent.h>
+#include <fcntl.h>
+#include <errno.h>
+#include <utime.h>
+#include <time.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <sys/inotify.h>
+#include <sys/select.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#include <sys/stat.h>
-#include <utime.h>
-#include <errno.h>
 
-//Standard C and POSIX headers for I/O, sockets, networking, file operations, and error handling.
+#define PORT 12345
+#define BUFSIZE 4096
+#define WATCH_DIR "./server_dir"
+#define EVENT_MASK (IN_CREATE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVED_TO | IN_ATTRIB)
+#define MAX_TRACKED_FILES 100
+typedef struct {
+    char filename[512];
+    time_t received_time;
+} ReceivedFile;
 
-#define PORT 12345 //PORT: The TCP port the server will listen on.
-#define BACKLOG 5 //BACKLOG: Number of pending connections allowed in the queue.
-#define BUFSIZE 4096 // Buffer size for reading file data
- //Buffer size for reading file data.
+#define MAX_RECEIVED 100
+ReceivedFile recently_received[MAX_RECEIVED];
+int recent_count = 0;
+
+void log_event(const char *direction, const char *action, const char *filename) {
+    FILE *log = fopen(LOG_FILE, "a");
+    if (!log) return;
+
+    static int header_written = 0;
+
+    if (!header_written) {
+        fprintf(log, "+---------------------+----------------------+----------------------+\n");
+        fprintf(log, "|      Timestamp      |       CLIENT         |       SERVER         |\n");
+        fprintf(log, "+---------------------+----------------------+----------------------+\n");
+        header_written = 1;
+    }
+
+    char timebuf[64];
+    time_t now = time(NULL);
+    strftime(timebuf, sizeof(timebuf), "%Y-%m-%d %H:%M:%S", localtime(&now));
+
+    char client_col[64] = "", server_col[64] = "";
+
+    if (strcmp(direction, "CLIENT -> SERVER") == 0)
+        snprintf(client_col, sizeof(client_col), "%s: %s", action, filename);
+    else if (strcmp(direction, "SERVER -> CLIENT") == 0)
+        snprintf(server_col, sizeof(server_col), "%s: %s", action, filename);
+
+    fprintf(log, "| %-19s | %-20s | %-20s |\n", timebuf, client_col, server_col);
+    fclose(log);
+}
 
 
-// Helper function to receive exactly n bytes
-//recv_all ensures exactly len bytes are received from the socket.
-//Loops until all requested bytes are received (since recv might return fewer bytes than requested).
-//Returns the total bytes received or an error.
+typedef struct {
+    char filename[512];
+    time_t last_sent_mtime;
+} FileTracker;
+
+FileTracker tracked_files[MAX_TRACKED_FILES];
+int tracked_count = 0;
+
+ssize_t send_all(int sockfd, const void *buf, size_t len) {
+    size_t total = 0;
+    const char *ptr = buf;
+    while (total < len) {
+        ssize_t n = send(sockfd, ptr + total, len - total, 0);
+        if (n <= 0) return n;
+        total += n;
+    }
+    return total;
+}
+
 ssize_t recv_all(int sockfd, void *buf, size_t len) {
     size_t total = 0;
     char *ptr = buf;
@@ -34,136 +91,215 @@ ssize_t recv_all(int sockfd, void *buf, size_t len) {
     return total;
 }
 
-int main() {
-    int server_fd, client_fd;
-    struct sockaddr_in server_addr, client_addr;
-    socklen_t client_len = sizeof(client_addr);
+void send_file(const char *filepath, int sockfd) {
+	// Prevent sync loop: ignore files received in the last 5 seconds
+time_t now = time(NULL);
+for (int i = 0; i < recent_count; ++i) {
+    if (strcmp(recently_received[i].filename, filepath) == 0 &&
+        now - recently_received[i].received_time <= 5) {
+        // Recent receive â€” skip sending back
+        return;
+    }
+}
 
-    //server_fd: Server socket file descriptor.
+    struct stat st;
+    if (stat(filepath, &st) < 0) return;
 
-    //client_fd: Client connection file descriptor.
-
-    //server_addr, client_addr: Structures to hold address info.
-
-    //client_len: Size of the client address structure.
-
-    // 1. Set up socket
-    server_fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd < 0) { perror("socket"); exit(1); }
-    
-    //Creates a TCP socket (SOCK_STREAM) using IPv4 (AF_INET).
-
-    //Checks for errors.
-
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = INADDR_ANY;
-    server_addr.sin_port = htons(PORT);
-
-    //sin_family: Address family (IPv4).
-
-    //sin_addr.s_addr: Listen on all interfaces (INADDR_ANY).
-
-    //sin_port: Port number (converted to network byte order).
-
-    if (bind(server_fd, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
-        perror("bind"); exit(1);
+    for (int i = 0; i < tracked_count; ++i) {
+        if (strcmp(tracked_files[i].filename, filepath) == 0 &&
+            tracked_files[i].last_sent_mtime == st.st_mtime)
+            return;
     }
 
-    //Binds the socket to the specified address and port.
-    //Checks for errors.
+    FILE *fp = fopen(filepath, "rb");
+    if (!fp) return;
 
+    const char *filename = strrchr(filepath, '/');
+    filename = filename ? filename + 1 : filepath;
 
-    if (listen(server_fd, BACKLOG) < 0) { perror("listen"); exit(1); }
+    struct utimbuf times = { st.st_atime, st.st_mtime };
+    uint32_t name_len = htonl(strlen(filename));
+    uint64_t filesize = htobe64(st.st_size);
 
-    //Enables the socket to accept incoming connections.
-    //BACKLOG specifies the maximum number of queued connections.
+    send_all(sockfd, &name_len, sizeof(name_len));
+    send_all(sockfd, filename, strlen(filename));
+    send_all(sockfd, &filesize, sizeof(filesize));
+    send_all(sockfd, &st.st_mode, sizeof(st.st_mode));
+    send_all(sockfd, &times, sizeof(times));
 
-    printf("Server listening on port %d...\n", PORT);
+    char buffer[BUFSIZE];
+    size_t n;
+    while ((n = fread(buffer, 1, BUFSIZE, fp)) > 0)
+        send_all(sockfd, buffer, n);
 
-    client_fd = accept(server_fd, (struct sockaddr*)&client_addr, &client_len);
-    if (client_fd < 0) { perror("accept"); exit(1); }
-    printf("Client connected.\n");
-    
-    //Waits for a client to connect.
-    //On success, client_fd is a new socket for communication with the client.
-    
-    // 2. Receive file metadata
+    fclose(fp);
+    log_event("SERVER -> CLIENT", "Sent", filename);
+    printf("?? Sent: %s\n", filename);
+
+    for (int i = 0; i < tracked_count; ++i) {
+        if (strcmp(tracked_files[i].filename, filepath) == 0) {
+            tracked_files[i].last_sent_mtime = st.st_mtime;
+            return;
+        }
+    }
+    if (tracked_count < MAX_TRACKED_FILES) {
+        strcpy(tracked_files[tracked_count].filename, filepath);
+        tracked_files[tracked_count].last_sent_mtime = st.st_mtime;
+        tracked_count++;
+    }
+}
+
+void poll_files(const char *dirpath, int sockfd) {
+    DIR *dir = opendir(dirpath);
+    if (!dir) return;
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) {
+        if (entry->d_type != DT_REG) continue;
+        if (entry->d_name[0] == '.' || strstr(entry->d_name, ".swp")) continue;
+
+        char filepath[600];
+        snprintf(filepath, sizeof(filepath), "%s/%s", dirpath, entry->d_name);
+
+        struct stat st;
+        if (stat(filepath, &st) == 0) {
+            int should_send = 1;
+            for (int i = 0; i < tracked_count; ++i) {
+                if (strcmp(tracked_files[i].filename, filepath) == 0 &&
+                    tracked_files[i].last_sent_mtime == st.st_mtime) {
+                    should_send = 0;
+                    break;
+                }
+            }
+            if (should_send)
+                send_file(filepath, sockfd);
+        }
+    }
+usleep(500000);  // 0.5 seconds delay
+
+    closedir(dir);
+}
+
+void receive_file(int sockfd) {
     uint32_t name_len;
-    if (recv_all(client_fd, &name_len, sizeof(name_len)) <= 0) { perror("recv name_len"); exit(1); }
+    if (recv_all(sockfd, &name_len, sizeof(name_len)) <= 0) return;
     name_len = ntohl(name_len);
 
-    //Receives the length of the filename (sent as a 32-bit unsigned int in network byte order).
-    //Converts it to host byte order.
-
     char filename[512];
-    if (name_len > sizeof(filename) - 1) { fprintf(stderr, "Filename too long\n"); exit(1); }
-    if (recv_all(client_fd, filename, name_len) <= 0) { perror("recv filename"); exit(1); }
+    if (recv_all(sockfd, filename, name_len) <= 0) return;
     filename[name_len] = '\0';
 
-    //Checks that the filename isn’t too long for the buffer.
-    //Receives the filename bytes and null-terminates the string.
-
     uint64_t filesize;
-    if (recv_all(client_fd, &filesize, sizeof(filesize)) <= 0) { perror("recv filesize"); exit(1); }
+    if (recv_all(sockfd, &filesize, sizeof(filesize)) <= 0) return;
     filesize = be64toh(filesize);
 
-    //Receives the file size (sent as a 64-bit unsigned int in network byte order).
-    //Converts it to host byte order.
-
     mode_t permissions;
-    if (recv_all(client_fd, &permissions, sizeof(permissions)) <= 0) { perror("recv permissions"); exit(1); }
-    
-    //Receives the file permissions (as a mode_t value).
-
+    recv_all(sockfd, &permissions, sizeof(permissions));
     struct utimbuf times;
-    if (recv_all(client_fd, &times, sizeof(times)) <= 0) { perror("recv utimbuf"); exit(1); }
+    recv_all(sockfd, &times, sizeof(times));
 
-    //Receives the access and modification times (as a struct utimbuf).
-
-    printf("Receiving file: %s (%lu bytes)\n", filename, filesize);
-    
-    //Prints info about the incoming file.
-    
-    // 3. Receive file contents
-    FILE *fp = fopen(filename, "wb");
-    if (!fp) { perror("fopen"); exit(1); }
-    
-    //Opens the file for binary writing.
-    //Checks for errors.
+    char fullpath[600];
+    snprintf(fullpath, sizeof(fullpath), "%s/%s", WATCH_DIR, filename);
+    FILE *fp = fopen(fullpath, "wb");
+    if (!fp) return;
 
     size_t received = 0;
     char buffer[BUFSIZE];
     while (received < filesize) {
-        size_t to_read = (filesize - received) < BUFSIZE ? (filesize - received) : BUFSIZE;
-        ssize_t n = recv(client_fd, buffer, to_read, 0);
-        if (n <= 0) { perror("recv file data"); break; }
+        size_t to_read = (filesize - received < BUFSIZE) ? (filesize - received) : BUFSIZE;
+        ssize_t n = recv(sockfd, buffer, to_read, 0);
+        if (n <= 0) break;
         fwrite(buffer, 1, n, fp);
         received += n;
     }
+
     fclose(fp);
-    
-    //Loops until the entire file is received.
-    //Reads up to BUFSIZE bytes at a time from the socket.
-    //Writes each chunk to the file.
-    //Tracks total bytes received.
-    //Closes the file when done.
+    chmod(fullpath, permissions);
+    utime(fullpath, &times);
+    log_event("CLIENT -> SERVER", "Received", filename);
+    printf("?? Received: %s\n", filename);
+    // Save to recently received cache
+int updated = 0;
+for (int i = 0; i < recent_count; ++i) {
+    if (strcmp(recently_received[i].filename, filename) == 0) {
+        recently_received[i].received_time = time(NULL);
+        updated = 1;
+        break;
+    }
+}
+if (!updated && recent_count < MAX_RECEIVED) {
+    strcpy(recently_received[recent_count].filename, filename);
+    recently_received[recent_count].received_time = time(NULL);
+    recent_count++;
+}
+sleep(5); // Let the system catch up before sending any updates again
 
-    // 4. Restore permissions and timestamps
-    if (chmod(filename, permissions) < 0) perror("chmod");
-    if (utime(filename, &times) < 0) perror("utime");
-    
-    //Sets the file’s permissions.
+}
 
-    //Sets the file’s access and modification times.
+int main() {
+    mkdir(WATCH_DIR, 0755);
 
-    printf("File received and metadata restored.\n");
- 
-    close(client_fd);
+    int server_fd = socket(AF_INET, SOCK_STREAM, 0);
+    struct sockaddr_in server_addr = {
+        .sin_family = AF_INET,
+        .sin_port = htons(PORT),
+        .sin_addr.s_addr = INADDR_ANY
+    };
+    bind(server_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
+    listen(server_fd, 1);
+    printf("?? Server listening on port %d...\n", PORT);
+
+    int client_fd = accept(server_fd, NULL, NULL);
+    printf("? Client connected.\n");
+
+    int inotify_fd = inotify_init1(IN_NONBLOCK);
+    inotify_add_watch(inotify_fd, WATCH_DIR, EVENT_MASK);
+
+    fd_set fds;
+    struct timeval timeout;
+
+    while (1) {
+        FD_ZERO(&fds);
+        FD_SET(inotify_fd, &fds);
+        FD_SET(client_fd, &fds);
+        int maxfd = (inotify_fd > client_fd ? inotify_fd : client_fd) + 1;
+
+        timeout.tv_sec = 2;
+        timeout.tv_usec = 0;
+
+        int activity = select(maxfd, &fds, NULL, NULL, &timeout);
+
+        if (activity < 0 && errno != EINTR) break;
+
+        if (activity == 0) {
+            poll_files(WATCH_DIR, client_fd);
+            continue;
+        }
+
+        if (FD_ISSET(inotify_fd, &fds)) {
+            char buffer[4096];
+            int length = read(inotify_fd, buffer, sizeof(buffer));
+            int i = 0;
+            while (i < length) {
+                struct inotify_event *event = (struct inotify_event *)&buffer[i];
+                if (event->len && !(event->mask & IN_ISDIR)) {
+                    if (event->name[0] == '.' || strstr(event->name, ".swp")) {
+                        i += sizeof(struct inotify_event) + event->len;
+                        continue;
+                    }
+                    char filepath[600];
+                    snprintf(filepath, sizeof(filepath), "%s/%s", WATCH_DIR, event->name);
+                    send_file(filepath, client_fd);
+                }
+                i += sizeof(struct inotify_event) + event->len;
+            }
+        }
+
+        if (FD_ISSET(client_fd, &fds)) {
+            receive_file(client_fd);
+        }
+    }
+
     close(server_fd);
     return 0;
 }
-//Prints a completion message.
-
-//Closes the client and server sockets.
-
-//Exits the program.
