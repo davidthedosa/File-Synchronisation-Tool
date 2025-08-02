@@ -25,9 +25,26 @@ A. For sync between two folders on the same device in the same directory:
      ```
      ./client1
      ```
-  7. Type 'y' to connect locally and customize the log file name if you want to.
-     
+  7. Type 'y' to connect locally and customize the log file name if you want to in both server and client windows.
      <img width="1360" height="768" alt="VirtualBox_Ubuntu_VM_Dosa_02_08_2025_14_07_22" src="https://github.com/user-attachments/assets/2af4cdb3-d135-4794-9054-ceec7158d690" />
+     Connection has been established at this step.
+          
+  9. Open another terminal window and navigate to the same directory and change to the client_dir.
+      ```
+      cd client_dir
+      ```
+  10. Open another terminal window and navigate to the same directory and change to the server_dir.
+      ```
+      cd server_dir
+      ```
+  11. Now you can work with your files in any folder of your choice and the same will be synced in the other folder automatically in real time.
+      <img width="1360" height="768" alt="VirtualBox_Ubuntu_VM_Dosa_02_08_2025_14_18_29" src="https://github.com/user-attachments/assets/01163c16-956c-487c-b2b1-f169bc98fb95" />
+      
+  12. You can check the logs by navigating to the logs folder in File-Synchronisation-Tool
+
+      <img width="1037" height="457" alt="VirtualBox_Ubuntu_VM_Dosa_02_08_2025_14_20_59" src="https://github.com/user-attachments/assets/5640aaf3-96f3-4df9-9b41-4103f040b4e2" />
+
+
 
      
      
