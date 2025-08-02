@@ -28,7 +28,7 @@ A. For sync between two folders on the same device in the same directory:
      ./client1
      ```
   7. Type 'y' to connect locally and customize the log file name if you want to in both server and client windows.
-     <img width="1360" height="768" alt="VirtualBox_Ubuntu_VM_Dosa_02_08_2025_14_07_22" src="https://github.com/user-attachments/assets/2af4cdb3-d135-4794-9054-ceec7158d690" />
+     <img width="1360" height="768" alt="initialization" src="https://github.com/user-attachments/assets/2af4cdb3-d135-4794-9054-ceec7158d690" />
      Connection has been established at this step.
           
   9. Open another terminal window and navigate to the same directory and change to the client_dir.
@@ -40,18 +40,31 @@ A. For sync between two folders on the same device in the same directory:
       cd server_dir
       ```
   11. Now you can work with your files in any folder of your choice and the same will be synced in the other folder automatically in real time.
-      <img width="1360" height="768" alt="VirtualBox_Ubuntu_VM_Dosa_02_08_2025_14_18_29" src="https://github.com/user-attachments/assets/01163c16-956c-487c-b2b1-f169bc98fb95" />
+      <img width="1360" height="768" alt="example of sync of 1 file" src="https://github.com/user-attachments/assets/01163c16-956c-487c-b2b1-f169bc98fb95" />
       
   12. You can check the logs by navigating to the logs folder in File-Synchronisation-Tool
 
-      <img width="1037" height="457" alt="VirtualBox_Ubuntu_VM_Dosa_02_08_2025_14_20_59" src="https://github.com/user-attachments/assets/5640aaf3-96f3-4df9-9b41-4103f040b4e2" />
+      <img width="1037" height="457" alt="log file" src="https://github.com/user-attachments/assets/5640aaf3-96f3-4df9-9b41-4103f040b4e2" />
 
 B. For sync across two folders in two different machines connected on same local network.
   I. For Device 1 (Server):
     1. Follow the same steps described in A from A.1-A.3.
     2. Open another terminal and note down the ip address of the server system by typing the following command:
+    ```
+    ip address
+    ```
+    <img width="1050" height="477" alt="ip address of server system" src="https://github.com/user-attachments/assets/f0ce6dc0-90ab-480f-9d5b-26873320a3f3" />
+    3. Initialize the server
+     ```
+     ./server1
+     ```
+  II. For Device 2 (Client):
+    1. Follow the same steps described in A from A.1-A.2, A.4.
+    2. Initialize the client
+    ```
+     ./client1
+     ```
+    3. Type 'n' to connect to server on local network and enter the server ip address noted down earlier and customize the log file name if you want to in both server and client machines.
+
+    <img width="1017" height="286" alt="connection establishment between two devices" src="https://github.com/user-attachments/assets/3c81d876-b25e-4ac5-ab15-5e3b386c5673" />
     
-
-
-     
-     
