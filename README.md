@@ -51,21 +51,22 @@ B. For sync across two folders in two different machines connected on same local
   I. For Device 1 (Server):
   1. Follow the same steps described in A from A.1-A.3
   2. Open another terminal and note down the ip address of the server system by typing the following command:
-    ```
-    ip address
-    ```
-    <img width="1050" height="477" alt="ip address of server system" src="https://github.com/user-attachments/assets/f0ce6dc0-90ab-480f-9d5b-26873320a3f3" />
-  3. Initialize the server
+     ```
+     ip address
+     ```
+
+  <img width="1050" height="477" alt="ip address of server system" src="https://github.com/user-attachments/assets/f0ce6dc0-90ab-480f-9d5b-26873320a3f3" />
+  4. Initialize the server
      ```
      ./server1
      ```
   II. For Device 2 (Client):
-    1. Follow the same steps described in A from A.1-A.2, A.4.
-    2. Initialize the client
+  1. Follow the same steps described in A from A.1-A.2, A.4.
+  2. Initialize the client
     ```
      ./client1
      ```
-    3. Type 'n' to connect to server on local network and enter the server ip address noted down earlier and customize the log file name if you want to in both server and client machines.
+  3. Type 'n' to connect to server on local network and enter the server ip address noted down earlier and customize the log file name if you want to in both server and client machines.
 
-    <img width="1017" height="286" alt="connection establishment between two devices" src="https://github.com/user-attachments/assets/3c81d876-b25e-4ac5-ab15-5e3b386c5673" />
+  <img width="1017" height="286" alt="connection establishment between two devices" src="https://github.com/user-attachments/assets/3c81d876-b25e-4ac5-ab15-5e3b386c5673" />
     
