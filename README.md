@@ -2,6 +2,8 @@ This tool is designed to automatically monitor changes (such as file creation, m
 
 A. For sync between two folders on the same device in the same directory:
   1. Open a terminal window and navigate to the folder where you want to set up the client folder (Folder 1) and type:
-     ```git clone https://github.com/davidthedosa/File-Synchronisation-Tool```
+     ```
+     git clone https://github.com/davidthedosa/File-Synchronisation-Tool
+     ```
      
      
