@@ -56,17 +56,26 @@ B. For sync across two folders in two different machines connected on same local
      ```
 
   <img width="1050" height="477" alt="ip address of server system" src="https://github.com/user-attachments/assets/f0ce6dc0-90ab-480f-9d5b-26873320a3f3" />
-  4. Initialize the server
+  
+  3. Initialize the server
      ```
      ./server1
      ```
+
   II. For Device 2 (Client):
+  
   1. Follow the same steps described in A from A.1-A.2, A.4.
   2. Initialize the client
-    ```
+     ```
      ./client1
      ```
   3. Type 'n' to connect to server on local network and enter the server ip address noted down earlier and customize the log file name if you want to in both server and client machines.
 
   <img width="1017" height="286" alt="connection establishment between two devices" src="https://github.com/user-attachments/assets/3c81d876-b25e-4ac5-ab15-5e3b386c5673" />
+
+  4. Replicate A.9 and A.10 on respective machines to sync effectively.
+     <img width="1360" height="768" alt="Client machine" src="https://github.com/user-attachments/assets/3a6d21f3-05f7-4466-9b66-0c0f5b4f4018" />
+     <img width="1672" height="515" alt="server machine" src="https://github.com/user-attachments/assets/d506cfe7-10c8-43af-9390-c66c1a388b8d" />
+
+
     
