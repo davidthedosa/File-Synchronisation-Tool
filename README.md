@@ -13,6 +13,8 @@ A. For sync between two folders on the same device in the same directory:
      ```
      gcc tcp_server.c -o server1
      ```
+
+     _Alternatively you can use the ```make``` command to skip steps 3 and 4_
   4. Type the following to compile the client code.
      ```
      gcc tcp_client.c -o client1
@@ -44,6 +46,11 @@ A. For sync between two folders on the same device in the same directory:
 
       <img width="1037" height="457" alt="VirtualBox_Ubuntu_VM_Dosa_02_08_2025_14_20_59" src="https://github.com/user-attachments/assets/5640aaf3-96f3-4df9-9b41-4103f040b4e2" />
 
+B. For sync across two folders in two different machines connected on same local network.
+  I. For Device 1 (Server):
+    1. Follow the same steps described in A from A.1-A.3.
+    2. Open another terminal and note down the ip address of the server system by typing the following command:
+    
 
 
      
