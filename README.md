@@ -21,6 +21,13 @@ A. For sync between two folders on the same device in the same directory:
      ```
      ./server1
      ```
+  6. Open another terminal window and navigate to the same directory to initialize the client.
+     ```
+     ./client1
+     ```
+  7. Type 'y' to connect locally and customize the log file name if you want to.
      
+     <img width="1360" height="768" alt="VirtualBox_Ubuntu_VM_Dosa_02_08_2025_14_07_22" src="https://github.com/user-attachments/assets/2af4cdb3-d135-4794-9054-ceec7158d690" />
+
      
      
