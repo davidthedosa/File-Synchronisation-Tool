@@ -49,7 +49,6 @@ A. For sync between two folders on the same device in the same directory:
 B. For sync across two folders in two different machines connected on same local network.
   
   I. For Device 1 (Server):
-    
     1. Follow the same steps described in A from A.1-A.3
     2. Open another terminal and note down the ip address of the server system by typing the following command:
     ```
